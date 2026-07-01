@@ -10,9 +10,10 @@ interface Props {
   group: { id: string; name: string | null; confirmedCount: number } | null;
   alreadyRequested: boolean;
   alreadyInGroup: boolean;
+  alreadyInAnotherGroup: boolean;
 }
 
-export function ProfileActions({ targetUserId, currentUserId, group, alreadyRequested, alreadyInGroup }: Props) {
+export function ProfileActions({ targetUserId, currentUserId, group, alreadyRequested, alreadyInGroup, alreadyInAnotherGroup }: Props) {
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState(alreadyRequested);
   const router = useRouter();
@@ -39,6 +40,15 @@ export function ProfileActions({ targetUserId, currentUserId, group, alreadyRequ
     return (
       <div className="px-4 py-3 rounded-2xl bg-green-500/10 border border-green-500/30 text-center">
         <p className="text-green-400 text-sm font-medium">You&apos;re in this group</p>
+      </div>
+    );
+  }
+
+  if (alreadyInAnotherGroup) {
+    return (
+      <div className="px-4 py-3 rounded-2xl bg-neutral-900 border border-neutral-800 text-center">
+        <p className="text-neutral-400 text-sm font-medium">You&apos;re already in a group</p>
+        <p className="text-neutral-600 text-xs mt-1">Leave your current group to join a new one</p>
       </div>
     );
   }

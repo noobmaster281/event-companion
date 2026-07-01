@@ -29,9 +29,10 @@ export interface AttendeeCardData {
   } | null;
 }
 
-export function AttendeeCard({ userId, name, photoUrl, vibeTags, socialHandle, group }: AttendeeCardData) {
+export function AttendeeCard({ userId, name, photoUrl, vibeTags, socialHandle, group, eventId }: AttendeeCardData & { eventId?: string }) {
+  const href = eventId ? `/profile/${userId}?event=${eventId}` : `/profile/${userId}`;
   return (
-    <Link href={`/profile/${userId}`} className="block active:scale-95 transition-transform">
+    <Link href={href} className="block active:scale-95 transition-transform">
       <div className="bg-neutral-900 rounded-2xl overflow-hidden">
         <div className="aspect-[3/4] bg-neutral-800 relative">
           {photoUrl ? (

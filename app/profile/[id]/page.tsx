@@ -16,81 +16,96 @@ const VIBE_LABELS: Record<VibeTag, string> = {
   "first-timer": "First timer",
 };
 
-export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: targetId } = await params;
+export default async function ProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ event?: string }>;
+}) {
+  const [{ id: targetId }, { event: eventId }] = await Promise.all([params, searchParams]);
   const supabase = await createClient();
 
-  const {
-    data: { user: me },
-  } = await supabase.auth.getUser();
+  const { data: { user: me } } = await supabase.auth.getUser();
   if (!me) redirect("/");
 
   if (targetId === me.id) redirect("/profile");
 
   const { data: profile } = await supabase
     .from("users")
-    .select(
-      "id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle"
-    )
+    .select("id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle")
     .eq("id", targetId)
     .single();
 
   if (!profile) notFound();
 
-  // Get their shared event badges (events we're both verified for)
-  const { data: myBadges } = await supabase
-    .from("verified_badges")
-    .select("event_id")
-    .eq("user_id", me.id);
-
-  const myEventIds = (myBadges ?? []).map((b) => b.event_id);
+  // Scope to the specific event if provided, otherwise fall back to all shared events
+  let scopedEventIds: string[];
+  if (eventId) {
+    scopedEventIds = [eventId];
+  } else {
+    const { data: myBadges } = await supabase
+      .from("verified_badges")
+      .select("event_id")
+      .eq("user_id", me.id);
+    scopedEventIds = (myBadges ?? []).map((b) => b.event_id);
+  }
 
   const { data: sharedBadges } = await supabase
     .from("verified_badges")
     .select("event_id, events(name, festival_name)")
     .eq("user_id", targetId)
-    .in("event_id", myEventIds);
+    .in("event_id", scopedEventIds);
 
-  // Get their confirmed group (if any) in a shared event
+  // Their confirmed group scoped to the event context
   const { data: membership } = await supabase
     .from("group_members")
     .select("group_id, status, groups!inner(id, name, status, event_id)")
     .eq("user_id", targetId)
     .eq("status", "confirmed")
-    .in("groups.event_id", myEventIds)
+    .in("groups.event_id", scopedEventIds)
     .maybeSingle();
 
   type GroupRow = { id: string; name: string | null; status: string; event_id: string };
-  const theirGroup = membership
-    ? (membership.groups as unknown as GroupRow)
-    : null;
+  const theirGroup = membership ? (membership.groups as unknown as GroupRow) : null;
 
-  // Check my relationship to their group
+  // Check my relationship to their group + whether I'm already confirmed elsewhere in this event
   let alreadyRequested = false;
   let alreadyInGroup = false;
-  if (theirGroup) {
-    const { data: myMembership } = await supabase
-      .from("group_members")
-      .select("status")
-      .eq("group_id", theirGroup.id)
-      .eq("user_id", me.id)
-      .maybeSingle();
+  let alreadyInAnotherGroup = false;
+  let confirmedCount = 0;
 
+  if (theirGroup) {
+    const [{ data: myMembership }, { data: myConfirmedMembership }, { count }] = await Promise.all([
+      supabase
+        .from("group_members")
+        .select("status")
+        .eq("group_id", theirGroup.id)
+        .eq("user_id", me.id)
+        .maybeSingle(),
+      supabase
+        .from("group_members")
+        .select("group_id, groups!inner(event_id)")
+        .eq("user_id", me.id)
+        .eq("status", "confirmed")
+        .eq("groups.event_id", theirGroup.event_id)
+        .neq("group_id", theirGroup.id)
+        .maybeSingle(),
+      supabase
+        .from("group_members")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", theirGroup.id)
+        .eq("status", "confirmed"),
+    ]);
+
+    confirmedCount = count ?? 0;
     if (myMembership) {
       alreadyRequested = true;
       alreadyInGroup = myMembership.status === "confirmed";
     }
-  }
-
-  // Confirmed member count for their group
-  let confirmedCount = 0;
-  if (theirGroup) {
-    const { count } = await supabase
-      .from("group_members")
-      .select("id", { count: "exact", head: true })
-      .eq("group_id", theirGroup.id)
-      .eq("status", "confirmed");
-    confirmedCount = count ?? 0;
+    if (myConfirmedMembership) {
+      alreadyInAnotherGroup = true;
+    }
   }
 
   const vibeTags = (profile.vibe_tags ?? []) as VibeTag[];
@@ -104,11 +119,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     | { name: string; festival_name: string }
     | null;
 
+  const backHref = eventId ? `/feed?event=${eventId}` : "/feed";
+
   return (
     <div className="flex flex-col flex-1">
       {/* Back button */}
       <div className="px-5 pt-6">
-        <Link href="/feed" className="inline-flex items-center gap-1 text-neutral-400 text-sm">
+        <Link href={backHref} className="inline-flex items-center gap-1 text-neutral-400 text-sm">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -188,7 +205,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* Group status */}
+      {/* Group status — scoped to the event context */}
       {theirGroup && (
         <div className="px-5 mt-6">
           <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Group</p>
@@ -214,6 +231,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           group={theirGroup ? { id: theirGroup.id, name: theirGroup.name, confirmedCount } : null}
           alreadyRequested={alreadyRequested}
           alreadyInGroup={alreadyInGroup}
+          alreadyInAnotherGroup={alreadyInAnotherGroup}
         />
       </div>
     </div>

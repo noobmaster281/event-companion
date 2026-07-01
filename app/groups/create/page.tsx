@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, FormEvent, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-export default function CreateGroupPage() {
+function CreateGroupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get("event");
+
   const [groupName, setGroupName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const backHref = eventId ? `/feed?event=${eventId}` : "/feed";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -17,31 +22,29 @@ export default function CreateGroupPage() {
     setSubmitting(true);
 
     const supabase = createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/"); return; }
 
-    // Get the user's first verified event
-    const { data: badges } = await supabase
-      .from("verified_badges")
-      .select("event_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .single();
-
-    if (!badges) {
-      setError("You need a verified ticket to create a group.");
-      setSubmitting(false);
-      return;
+    let resolvedEventId = eventId;
+    if (!resolvedEventId) {
+      const { data: badge } = await supabase
+        .from("verified_badges")
+        .select("event_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+      if (!badge) {
+        setError("You need a verified ticket to create a group.");
+        setSubmitting(false);
+        return;
+      }
+      resolvedEventId = badge.event_id;
     }
 
-    // Create the group
     const { data: group, error: groupError } = await supabase
       .from("groups")
       .insert({
-        event_id: badges.event_id,
+        event_id: resolvedEventId,
         name: groupName.trim() || null,
         created_by: user.id,
         status: "open",
@@ -55,7 +58,6 @@ export default function CreateGroupPage() {
       return;
     }
 
-    // Add creator as first confirmed member
     await supabase.from("group_members").insert({
       group_id: group.id,
       user_id: user.id,
@@ -67,7 +69,7 @@ export default function CreateGroupPage() {
 
   return (
     <div className="flex flex-col flex-1 px-5 pt-8 pb-8">
-      <Link href="/feed" className="inline-flex items-center gap-1 text-neutral-400 text-sm mb-8">
+      <Link href={backHref} className="inline-flex items-center gap-1 text-neutral-400 text-sm mb-8">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -77,7 +79,7 @@ export default function CreateGroupPage() {
       <h1 className="text-2xl font-bold text-white">Start a group</h1>
       <p className="text-sm text-neutral-400 mt-2 mb-8">
         You&apos;ll be the first confirmed member. Others can request to join from the feed.
-        Once you hit 3 confirmed members, group chat unlocks.
+        Chat unlocks once 2 members are confirmed.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col flex-1">
@@ -113,5 +115,13 @@ export default function CreateGroupPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function CreateGroupPage() {
+  return (
+    <Suspense>
+      <CreateGroupForm />
+    </Suspense>
   );
 }

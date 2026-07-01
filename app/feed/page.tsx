@@ -1,31 +1,43 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import FeedClient from "./FeedClient";
 import type { AttendeeCardData } from "@/components/AttendeeCard";
 import type { VibeTag } from "@/lib/types";
 
-export default async function FeedPage() {
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return null;
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ event?: string }>;
+}) {
+  const { event: eventId } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
   const { data: profile } = await supabase
     .from("users")
-    .select("name, profile_complete")
+    .select("profile_complete")
     .eq("id", user.id)
     .single();
 
   if (!profile?.profile_complete) redirect("/profile/create");
 
-  // Get current user's verified event IDs (no embedded join — avoids PGRST125)
-  const { data: myBadges, error: badgeError } = await supabase
+  const { data: myBadges } = await supabase
     .from("verified_badges")
     .select("event_id")
     .eq("user_id", user.id);
-
-  console.log(`[feed] user=${user.id} badges=${JSON.stringify(myBadges)} err=${JSON.stringify(badgeError)}`);
 
   if (!myBadges || myBadges.length === 0) {
     return (
@@ -40,58 +52,87 @@ export default async function FeedPage() {
 
   const myEventIds = myBadges.map((b) => b.event_id);
 
-  // Fetch event details separately
-  const { data: eventRows } = await supabase
+  // No event selected (or invalid) — show event picker
+  if (!eventId || !myEventIds.includes(eventId)) {
+    const { data: events } = await supabase
+      .from("events")
+      .select("id, name, festival_name, event_date")
+      .in("id", myEventIds)
+      .order("event_date", { ascending: true });
+
+    return (
+      <div className="flex flex-col flex-1 pb-8">
+        <div className="px-5 pt-10 pb-6">
+          <h1 className="text-2xl font-bold text-white">Your Events</h1>
+          <p className="text-sm text-neutral-400 mt-1">Pick an event to see who else is going.</p>
+        </div>
+
+        <div className="px-5 flex flex-col gap-3">
+          {(events ?? []).map((event) => (
+            <Link
+              key={event.id}
+              href={`/feed?event=${event.id}`}
+              className="flex items-center gap-4 bg-neutral-900 rounded-2xl px-4 py-4 active:scale-[0.98] transition-transform"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-brand-400 font-medium uppercase tracking-wide mb-0.5">
+                  {event.festival_name}
+                </p>
+                <p className="text-white font-semibold text-sm leading-snug truncate">
+                  {event.name}
+                </p>
+                {event.event_date && (
+                  <p className="text-xs text-neutral-500 mt-0.5">{formatDate(event.event_date)}</p>
+                )}
+              </div>
+              <svg className="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Event selected — fetch event details
+  const { data: eventRow } = await supabase
     .from("events")
     .select("id, name, festival_name")
-    .in("id", myEventIds);
+    .eq("id", eventId)
+    .single();
 
-  const primaryEvent = (eventRows ?? [])[0] as
-    | { id: string; name: string; festival_name: string }
-    | undefined;
-
-  // Step 1: get all other verified user IDs for these events
-  const { data: otherBadges, error: otherBadgesError } = await supabase
+  // Other verified attendees for this event
+  const { data: otherBadges } = await supabase
     .from("verified_badges")
-    .select("user_id, event_id")
-    .in("event_id", myEventIds)
+    .select("user_id")
+    .eq("event_id", eventId)
     .neq("user_id", user.id);
-
-  if (otherBadgesError) console.error("[feed] otherBadges error", otherBadgesError);
 
   const otherUserIds = (otherBadges ?? []).map((b) => b.user_id);
 
-  // Step 2: fetch those users' profiles
-  const { data: userProfiles, error: profilesError } = otherUserIds.length > 0
+  const { data: userProfiles } = otherUserIds.length > 0
     ? await supabase
         .from("users")
         .select("id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle")
         .in("id", otherUserIds)
-    : { data: [], error: null };
+    : { data: [] };
 
-  if (profilesError) console.error("[feed] userProfiles error", profilesError);
-
-  // Step 3: fetch groups for these events
-  const { data: rawGroups, error: groupsError } = await supabase
+  // Groups for this event
+  const { data: rawGroups } = await supabase
     .from("groups")
     .select("id, name, status, created_by, event_id")
-    .in("event_id", myEventIds);
-
-  if (groupsError) console.error("[feed] groups error", groupsError);
+    .eq("event_id", eventId);
 
   const groupIds = (rawGroups ?? []).map((g) => g.id);
 
-  // Step 4: fetch group members separately
-  const { data: rawMembers, error: membersError } = groupIds.length > 0
+  const { data: rawMembers } = groupIds.length > 0
     ? await supabase
         .from("group_members")
         .select("group_id, user_id, status")
         .in("group_id", groupIds)
-    : { data: [], error: null };
+    : { data: [] };
 
-  if (membersError) console.error("[feed] members error", membersError);
-
-  // Build userId → group lookup
   const userGroupMap = new Map<
     string,
     { id: string; status: "open" | "confirmed"; confirmedCount: number }
@@ -111,7 +152,6 @@ export default async function FeedPage() {
 
   const myGroup = userGroupMap.get(user.id) ?? null;
 
-  // Shape into card data
   const attendees: AttendeeCardData[] = (userProfiles ?? []).map((u) => {
     const handle = u.instagram_handle
       ? `@${u.instagram_handle}`
@@ -132,13 +172,11 @@ export default async function FeedPage() {
     };
   });
 
-  console.log(`[feed] user=${user.id} events=${myEventIds.length} attendees=${attendees.length}`);
-
   return (
     <FeedClient
       currentUserId={user.id}
-attendees={attendees}
-      event={primaryEvent ?? null}
+      attendees={attendees}
+      event={eventRow ?? null}
       myGroup={myGroup}
     />
   );

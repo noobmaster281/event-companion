@@ -23,6 +23,7 @@ interface Props {
   myGroup: { id: string; status: string } | null;
 }
 
+
 type GroupFilter = "all" | "looking" | "forming";
 
 export default function FeedClient({ attendees, event, myGroup }: Props) {
@@ -54,7 +55,13 @@ export default function FeedClient({ attendees, event, myGroup }: Props) {
   return (
     <div className="flex flex-col flex-1 pb-8">
       {/* Header */}
-      <div className="px-5 pt-10 pb-4">
+      <div className="px-5 pt-6 pb-4">
+        <Link href="/feed" className="inline-flex items-center gap-1 text-neutral-400 text-sm mb-4">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          All events
+        </Link>
         <h1 className="text-2xl font-bold text-white truncate">
           {event?.festival_name ?? "Your Event"}
         </h1>
@@ -75,7 +82,7 @@ export default function FeedClient({ attendees, event, myGroup }: Props) {
           </Link>
         ) : (
           <Link
-            href="/groups/create"
+            href={`/groups/create?event=${event?.id ?? ""}`}
             className="mt-3 flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2.5 hover:border-brand-500 transition-colors"
           >
             <svg className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,7 +142,7 @@ export default function FeedClient({ attendees, event, myGroup }: Props) {
       {filtered.length > 0 ? (
         <div className="px-5 grid grid-cols-2 gap-3">
           {filtered.map((attendee) => (
-            <AttendeeCard key={attendee.userId} {...attendee} />
+            <AttendeeCard key={attendee.userId} {...attendee} eventId={event?.id} />
           ))}
         </div>
       ) : (

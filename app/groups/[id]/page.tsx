@@ -60,7 +60,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
     redirect("/feed");
   }
 
-  const chatUnlocked = group.status === "confirmed" && confirmed.length >= 3 && isConfirmedMember;
+  const chatUnlocked = confirmed.length >= 2 && isConfirmedMember;
 
   // Fetch initial messages when chat is unlocked
   const initialMessages: ChatMessage[] = [];
@@ -130,16 +130,16 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           <div className="mt-4 bg-neutral-900 rounded-xl p-4">
             <div className="flex justify-between items-center mb-2">
               <p className="text-xs text-neutral-400">Progress to group chat</p>
-              <p className="text-xs text-neutral-300 font-medium">{confirmed.length} / 3 confirmed</p>
+              <p className="text-xs text-neutral-300 font-medium">{confirmed.length} / 2 confirmed</p>
             </div>
             <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-brand-500 rounded-full transition-all"
-                style={{ width: `${Math.min((confirmed.length / 3) * 100, 100)}%` }}
+                style={{ width: `${Math.min((confirmed.length / 2) * 100, 100)}%` }}
               />
             </div>
             <p className="text-xs text-neutral-500 mt-2">
-              {3 - confirmed.length} more {3 - confirmed.length === 1 ? "person" : "people"} needed to unlock chat
+              {2 - confirmed.length} more {2 - confirmed.length === 1 ? "person" : "people"} needed to unlock chat
             </p>
           </div>
         )}
@@ -217,7 +217,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           <div className="bg-neutral-900 rounded-2xl p-5 text-center">
             <p className="text-sm font-medium text-white">Request pending</p>
             <p className="text-xs text-neutral-500 mt-1">
-              The group creator will review your request. Chat unlocks once you&apos;re confirmed.
+              The group creator will review your request. Chat unlocks once 2 members are confirmed.
             </p>
           </div>
         </div>
