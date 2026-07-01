@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply bg-neutral-950 text-white antialiased;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
