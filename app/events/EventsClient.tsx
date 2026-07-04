@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 type EventRow = {
@@ -100,18 +101,23 @@ function EventCard({
             </svg>
           </a>
 
-          <button
-            type="button"
-            onClick={handleVerify}
-            disabled={verified || loading}
-            className={`px-4 py-3 rounded-2xl text-sm font-semibold border transition-all active:scale-95 ${
-              verified
-                ? "border-green-500/40 text-green-400 bg-green-500/10 cursor-default"
-                : "border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-50"
-            }`}
-          >
-            {loading ? "…" : verified ? "Verified ✓" : "Dev: Verify"}
-          </button>
+          {verified ? (
+            <Link
+              href={`/feed?event=${event.id}`}
+              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-green-500/40 text-green-400 bg-green-500/10 active:scale-95 transition-transform"
+            >
+              Verified ✓
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleVerify}
+              disabled={loading}
+              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-50 transition-all active:scale-95"
+            >
+              {loading ? "…" : "Dev: Verify"}
+            </button>
+          )}
         </div>
       </div>
     </div>
