@@ -72,8 +72,8 @@ function JoinContent() {
       {state.status === "verifying" && (
         <>
           <Spinner />
-          <p className="mt-6 text-lg font-medium text-white">Verifying your ticket…</p>
-          <p className="mt-2 text-sm text-neutral-400">This only takes a second.</p>
+          <p className="mt-6 text-lg font-medium text-ink">Verifying your ticket…</p>
+          <p className="mt-2 text-sm text-ink/50">This only takes a second.</p>
         </>
       )}
 
@@ -85,15 +85,15 @@ function JoinContent() {
                 d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Ticket verified</h1>
-          <p className="mt-3 text-neutral-300">
-            You&apos;re confirmed for <span className="text-white font-semibold">{state.festival}</span>.
+          <h1 className="text-2xl font-serif font-bold text-ink">Ticket verified</h1>
+          <p className="mt-3 text-ink/70">
+            You&apos;re confirmed for <span className="text-ink font-semibold">{state.festival}</span>.
           </p>
-          <div className="mt-8 w-full bg-neutral-900 rounded-2xl p-5 text-left">
-            <p className="text-sm text-neutral-400 mb-1">Sign-in link sent to</p>
-            <p className="text-white font-medium">{state.email}</p>
+          <div className="mt-8 w-full bg-card rounded-2xl p-5 text-left border border-sunken">
+            <p className="text-sm text-ink/50 mb-1">Sign-in link sent to</p>
+            <p className="text-ink font-medium">{state.email}</p>
           </div>
-          <p className="mt-6 text-sm text-neutral-400 leading-relaxed">
+          <p className="mt-6 text-sm text-ink/50 leading-relaxed">
             Check your email and click the link to finish setting up your profile.
             It expires in 24 hours.
           </p>
@@ -108,9 +108,9 @@ function JoinContent() {
                 d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Verification failed</h1>
-          <p className="mt-3 text-neutral-400">{state.message}</p>
-          <p className="mt-6 text-sm text-neutral-500">
+          <h1 className="text-2xl font-serif font-bold text-ink">Verification failed</h1>
+          <p className="mt-3 text-ink/60">{state.message}</p>
+          <p className="mt-6 text-sm text-ink/40">
             If you think this is a mistake, contact support or try clicking the button
             in your ticket confirmation email again.
           </p>
@@ -133,7 +133,7 @@ function LoadingView() {
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
       <Spinner />
-      <p className="mt-6 text-lg font-medium text-white">Loading…</p>
+      <p className="mt-6 text-lg font-medium text-ink">Loading…</p>
     </div>
   );
 }

@@ -19,19 +19,19 @@ export function TopNavClient({ items, avatarUrl, userName }: Props) {
   const pathname = usePathname();
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-neutral-950/90 backdrop-blur-md border-b border-neutral-800/60">
+    <header className="fixed top-0 inset-x-0 z-50 bg-page/90 backdrop-blur-md border-b border-ink/10">
       <div className="mx-auto max-w-md flex items-center justify-between px-4 h-14">
         <nav className="flex items-center gap-1">
           {items.map((item) => {
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
                   active
-                    ? "text-white bg-neutral-800"
-                    : "text-neutral-400 hover:text-neutral-200"
+                    ? "text-ink bg-ink/10"
+                    : "text-ink/50 hover:text-ink"
                 }`}
               >
                 {item.label}
@@ -42,7 +42,7 @@ export function TopNavClient({ items, avatarUrl, userName }: Props) {
 
         <Link
           href="/profile"
-          className="w-8 h-8 rounded-full bg-neutral-800 overflow-hidden relative border-2 border-neutral-700 hover:border-brand-500 active:scale-95 transition-all shrink-0"
+          className="w-8 h-8 rounded-full bg-sunken overflow-hidden relative border-2 border-ink/15 hover:border-brand-500 active:scale-95 transition-all shrink-0"
         >
           {avatarUrl ? (
             <Image
@@ -54,7 +54,7 @@ export function TopNavClient({ items, avatarUrl, userName }: Props) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <span className="text-xs font-bold text-neutral-400">
+              <span className="text-xs font-bold text-ink/50">
                 {(userName ?? "?").charAt(0).toUpperCase()}
               </span>
             </div>
