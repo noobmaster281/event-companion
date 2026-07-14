@@ -19,8 +19,8 @@ const VIBE_TAGS: { id: VibeTag; label: string }[] = [
 const GROUP_SIZES = [2, 3, 4, 5, 6];
 const PLATFORMS: SocialPlatform[] = ["instagram", "tiktok", "snapchat"];
 const GENDERS: { id: Gender; label: string }[] = [
-  { id: "male", label: "Man" },
-  { id: "female", label: "Woman" },
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
   { id: "non-binary", label: "Non-binary" },
   { id: "prefer-not-to-say", label: "Prefer not to say" },
 ];

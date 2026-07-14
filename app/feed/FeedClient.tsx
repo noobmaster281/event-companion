@@ -17,11 +17,13 @@ const VIBE_LABELS: Record<VibeTag, string> = {
 };
 
 const GENDER_LABELS: Record<Gender, string> = {
-  male: "Men",
-  female: "Women",
+  male: "Male",
+  female: "Female",
   "non-binary": "Non-binary",
   "prefer-not-to-say": "Other",
 };
+
+const ALL_GENDERS: Gender[] = ["male", "female", "non-binary", "prefer-not-to-say"];
 
 interface Props {
   currentUserId: string;
@@ -54,12 +56,6 @@ export default function FeedClient({ currentUserId, attendees, event, myGroup }:
     const seen = new Set<VibeTag>();
     attendees.forEach((a) => a.vibeTags.forEach((t) => seen.add(t)));
     return Array.from(seen) as VibeTag[];
-  }, [attendees]);
-
-  const availableGenders = useMemo(() => {
-    const seen = new Set<Gender>();
-    attendees.forEach((a) => { if (a.gender) seen.add(a.gender); });
-    return Array.from(seen) as Gender[];
   }, [attendees]);
 
   const filtered = useMemo(() => {
@@ -122,33 +118,31 @@ export default function FeedClient({ currentUserId, attendees, event, myGroup }:
       {/* Filters */}
       <div className="px-5 space-y-2.5 mb-4">
         {/* Gender filter */}
-        {availableGenders.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5 scrollbar-hide">
+          <button
+            onClick={() => setGenderFilter("all")}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              genderFilter === "all"
+                ? "bg-brand-500 border-brand-500 text-white"
+                : "border-ink/20 text-ink/60 bg-card hover:border-ink/40"
+            }`}
+          >
+            Everyone
+          </button>
+          {ALL_GENDERS.filter((g) => g !== "prefer-not-to-say").map((g) => (
             <button
-              onClick={() => setGenderFilter("all")}
+              key={g}
+              onClick={() => setGenderFilter(g === genderFilter ? "all" : g)}
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                genderFilter === "all"
+                genderFilter === g
                   ? "bg-brand-500 border-brand-500 text-white"
                   : "border-ink/20 text-ink/60 bg-card hover:border-ink/40"
               }`}
             >
-              Everyone
+              {GENDER_LABELS[g]}
             </button>
-            {availableGenders.map((g) => (
-              <button
-                key={g}
-                onClick={() => setGenderFilter(g === genderFilter ? "all" : g)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  genderFilter === g
-                    ? "bg-brand-500 border-brand-500 text-white"
-                    : "border-ink/20 text-ink/60 bg-card hover:border-ink/40"
-                }`}
-              >
-                {GENDER_LABELS[g]}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Group filter */}
         <div className="flex gap-2">

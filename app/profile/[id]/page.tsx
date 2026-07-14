@@ -17,8 +17,8 @@ const VIBE_LABELS: Record<VibeTag, string> = {
 };
 
 const GENDER_LABELS: Record<Gender, string> = {
-  male: "Man",
-  female: "Woman",
+  male: "Male",
+  female: "Female",
   "non-binary": "Non-binary",
   "prefer-not-to-say": "Prefer not to say",
 };
