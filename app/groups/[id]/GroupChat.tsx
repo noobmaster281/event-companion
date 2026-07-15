@@ -102,14 +102,14 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
 
   return (
     <div className="mt-8">
-      <p className="text-xs text-neutral-500 uppercase tracking-wide mb-3 px-5">
+      <p className="text-xs text-ink/40 uppercase tracking-wide mb-3 px-5">
         Group Chat
       </p>
 
       {/* Messages */}
       <div className="px-5 min-h-32 max-h-96 overflow-y-auto flex flex-col gap-3 pb-2">
         {messages.length === 0 && (
-          <p className="text-center text-neutral-500 text-sm py-10">
+          <p className="text-center text-ink/40 text-sm py-10">
             No messages yet. Say hi!
           </p>
         )}
@@ -122,7 +122,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
               className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
             >
               {!isMe && (
-                <div className="w-7 h-7 rounded-full bg-neutral-800 shrink-0 overflow-hidden relative flex items-center justify-center mt-4">
+                <div className="w-7 h-7 rounded-full bg-sunken shrink-0 overflow-hidden relative flex items-center justify-center mt-4">
                   {profile.photoUrl ? (
                     <Image
                       src={profile.photoUrl}
@@ -132,7 +132,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
                       sizes="28px"
                     />
                   ) : (
-                    <span className="text-xs font-bold text-neutral-400">
+                    <span className="text-xs font-serif font-bold text-ink/40">
                       {profile.name.charAt(0).toUpperCase()}
                     </span>
                   )}
@@ -144,7 +144,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
                 }`}
               >
                 {!isMe && (
-                  <span className="text-xs text-neutral-500 px-1">
+                  <span className="text-xs text-ink/40 px-1">
                     {profile.name}
                   </span>
                 )}
@@ -152,7 +152,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
                   className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
                     isMe
                       ? "bg-brand-500 text-white rounded-br-sm"
-                      : "bg-neutral-800 text-white rounded-bl-sm"
+                      : "bg-card border border-sunken text-ink rounded-bl-sm"
                   }`}
                 >
                   {msg.content}
@@ -178,12 +178,12 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
               }
             }}
             placeholder="Message the group…"
-            className="flex-1 bg-neutral-900 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 text-sm outline-none border border-neutral-800 focus:border-brand-500 transition-colors"
+            className="flex-1 bg-sunken text-ink placeholder-ink/30 rounded-2xl px-4 py-3 text-sm outline-none border border-ink/15 focus:border-brand-500 transition-colors"
           />
           <button
             onClick={() => void send()}
             disabled={!input.trim() || sending}
-            className="w-11 h-11 bg-brand-500 disabled:bg-neutral-800 disabled:opacity-50 text-white rounded-full flex items-center justify-center shrink-0 transition-colors active:scale-95"
+            className="w-11 h-11 bg-brand-500 disabled:bg-sunken disabled:opacity-50 text-white rounded-full flex items-center justify-center shrink-0 transition-colors active:scale-95"
           >
             <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />

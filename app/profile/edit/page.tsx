@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { VibeTag, SocialPlatform } from "@/lib/types";
+import type { VibeTag, SocialPlatform, Gender } from "@/lib/types";
 
 const VIBE_TAGS: { id: VibeTag; label: string }[] = [
   { id: "here-for-headliners", label: "Here for the headliners" },
@@ -18,6 +18,12 @@ const VIBE_TAGS: { id: VibeTag; label: string }[] = [
 
 const GROUP_SIZES = [2, 3, 4, 5, 6];
 const PLATFORMS: SocialPlatform[] = ["instagram", "tiktok", "snapchat"];
+const GENDERS: { id: Gender; label: string }[] = [
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
+  { id: "non-binary", label: "Non-binary" },
+  { id: "prefer-not-to-say", label: "Prefer not to say" },
+];
 
 type HandleStatus = "idle" | "checking" | "valid" | "invalid";
 
@@ -32,6 +38,9 @@ export default function EditProfilePage() {
   const [name, setName] = useState("");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState<Gender | "">("");
+  const [bio, setBio] = useState("");
   const [selectedTags, setSelectedTags] = useState<VibeTag[]>([]);
   const [groupSize, setGroupSize] = useState(3);
   const [handles, setHandles] = useState<Record<SocialPlatform, string>>({
@@ -49,8 +58,11 @@ export default function EditProfilePage() {
 
   const filledPlatforms = PLATFORMS.filter((p) => handles[p].trim());
   const allFilledAreValid = filledPlatforms.every((p) => handleStatuses[p] === "valid");
+  const ageNum = parseInt(age, 10);
   const canSubmit =
     name.trim() &&
+    age && !isNaN(ageNum) && ageNum >= 18 &&
+    gender &&
     selectedTags.length > 0 &&
     filledPlatforms.length > 0 &&
     allFilledAreValid &&
@@ -63,7 +75,7 @@ export default function EditProfilePage() {
 
       const { data: profile } = await supabase
         .from("users")
-        .select("name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle, profile_complete")
+        .select("name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle, age, gender, bio, profile_complete")
         .eq("id", user.id)
         .single();
 
@@ -83,6 +95,9 @@ export default function EditProfilePage() {
       setName(profile.name ?? "");
       setPhotoPreview(profile.photo_url ?? null);
       setInitialPhotoUrl(profile.photo_url ?? null);
+      setAge(profile.age?.toString() ?? "");
+      setGender((profile.gender ?? "") as Gender | "");
+      setBio(profile.bio ?? "");
       setSelectedTags((profile.vibe_tags ?? []) as VibeTag[]);
       setGroupSize(profile.group_size_preference ?? 3);
       setHandles(loadedHandles);
@@ -129,6 +144,8 @@ export default function EditProfilePage() {
     setError(null);
 
     if (!name.trim()) { setError("Name is required."); return; }
+    if (!age || isNaN(ageNum) || ageNum < 18) { setError("You must be 18 or older."); return; }
+    if (!gender) { setError("Please select your gender."); return; }
     if (selectedTags.length === 0) { setError("Pick at least one vibe tag."); return; }
     if (filledPlatforms.length === 0) { setError("Add at least one social handle."); return; }
     if (!allFilledAreValid) { setError("Please verify all your social handles before saving."); return; }
@@ -161,6 +178,9 @@ export default function EditProfilePage() {
         email: user.email!,
         name: name.trim(),
         photo_url: photoUrl,
+        age: ageNum,
+        gender,
+        bio: bio.trim() || null,
         vibe_tags: selectedTags,
         group_size_preference: groupSize,
         instagram_handle: clean("instagram"),
@@ -192,48 +212,99 @@ export default function EditProfilePage() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col flex-1 px-5 pb-8 pt-6">
-      <h1 className="text-2xl font-bold text-white mb-8">Edit profile</h1>
+      <h1 className="text-2xl font-serif font-bold text-ink mb-8">Edit profile</h1>
 
       {/* Photo */}
       <div className="flex flex-col items-center mb-8">
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="w-24 h-24 rounded-full bg-neutral-800 border-2 border-dashed border-neutral-600 flex items-center justify-center overflow-hidden hover:border-brand-500 transition-colors"
+          className="w-24 h-24 rounded-full bg-sunken border-2 border-dashed border-ink/20 flex items-center justify-center overflow-hidden hover:border-brand-500 transition-colors"
         >
           {photoPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photoPreview} alt="Your photo" className="w-full h-full object-cover" />
           ) : (
-            <svg className="w-8 h-8 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-8 h-8 text-ink/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
             </svg>
           )}
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-ink/40">
           {photoPreview ? "Tap to change photo" : "Add a photo"}
         </p>
       </div>
 
       {/* Name */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-neutral-300 mb-2">Your name</label>
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-2">Your name</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="First name or nickname"
-          className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-brand-500 transition-colors"
+          className="w-full bg-sunken border border-ink/15 rounded-xl px-4 py-3 text-ink placeholder-ink/30 focus:outline-none focus:border-brand-500 transition-colors"
           maxLength={40}
           required
         />
       </div>
 
+      {/* Age */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-2">Age</label>
+        <input
+          type="number"
+          value={age}
+          onChange={(e) => setAge(e.target.value)}
+          placeholder="Must be 18+"
+          min={18}
+          max={100}
+          className="w-full bg-sunken border border-ink/15 rounded-xl px-4 py-3 text-ink placeholder-ink/30 focus:outline-none focus:border-brand-500 transition-colors"
+        />
+      </div>
+
+      {/* Gender */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-3">Gender</label>
+        <div className="flex flex-wrap gap-2">
+          {GENDERS.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => setGender(g.id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                gender === g.id
+                  ? "bg-brand-500 border-brand-500 text-white"
+                  : "border-ink/20 text-ink/70 hover:border-ink/40"
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bio */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-2">
+          Bio <span className="text-ink/40 font-normal">(optional)</span>
+        </label>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="One line about you…"
+          className="w-full bg-sunken border border-ink/15 rounded-xl px-4 py-3 text-ink placeholder-ink/30 focus:outline-none focus:border-brand-500 transition-colors resize-none"
+          maxLength={160}
+          rows={2}
+        />
+        <p className="text-right text-xs text-ink/30 mt-1">{bio.length}/160</p>
+      </div>
+
       {/* Vibe tags */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-neutral-300 mb-3">
-          Your vibe <span className="text-neutral-500">(pick up to 3)</span>
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-3">
+          Your vibe <span className="text-ink/40 font-normal">(pick up to 3)</span>
         </label>
         <div className="flex flex-wrap gap-2">
           {VIBE_TAGS.map((tag) => {
@@ -249,8 +320,8 @@ export default function EditProfilePage() {
                   selected
                     ? "bg-brand-500 border-brand-500 text-white"
                     : disabled
-                    ? "border-neutral-800 text-neutral-600 cursor-not-allowed"
-                    : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                    ? "border-ink/10 text-ink/30 cursor-not-allowed"
+                    : "border-ink/20 text-ink/70 hover:border-ink/40"
                 }`}
               >
                 {tag.label}
@@ -261,8 +332,8 @@ export default function EditProfilePage() {
       </div>
 
       {/* Group size */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-neutral-300 mb-3">Ideal group size</label>
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-3">Ideal group size</label>
         <div className="flex gap-2">
           {GROUP_SIZES.map((size) => (
             <button
@@ -272,7 +343,7 @@ export default function EditProfilePage() {
               className={`w-12 h-12 rounded-xl text-sm font-medium border transition-colors ${
                 groupSize === size
                   ? "bg-brand-500 border-brand-500 text-white"
-                  : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                  : "border-ink/20 text-ink/70 hover:border-ink/40"
               }`}
             >
               {size}
@@ -284,7 +355,7 @@ export default function EditProfilePage() {
             className={`px-3 h-12 rounded-xl text-sm font-medium border transition-colors ${
               groupSize === 10
                 ? "bg-brand-500 border-brand-500 text-white"
-                : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                : "border-ink/20 text-ink/70 hover:border-ink/40"
             }`}
           >
             7+
@@ -294,8 +365,8 @@ export default function EditProfilePage() {
 
       {/* Social handles */}
       <div className="mb-8">
-        <label className="block text-sm font-medium text-neutral-300 mb-1">Social handles</label>
-        <p className="text-xs text-neutral-500 mb-4">
+        <label className="block text-sm font-medium text-ink mb-1">Social handles</label>
+        <p className="text-xs text-ink/40 mb-4">
           At least one required. Clear a field to remove that handle.
         </p>
         <div className="space-y-3">
@@ -318,7 +389,7 @@ export default function EditProfilePage() {
 
       {/* Error */}
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+        <div className="mb-4 px-4 py-3 rounded-xl bg-status-report/10 border border-status-report/30 text-sm text-status-report">
           {error}
         </div>
       )}
@@ -353,37 +424,37 @@ function HandleRow({
   const label = platform.charAt(0).toUpperCase() + platform.slice(1);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-[74px] text-xs text-neutral-500 shrink-0">{label}</span>
+      <span className="w-[74px] text-xs text-ink/50 shrink-0">{label}</span>
       <div className="relative flex-1">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">@</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">@</span>
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           placeholder="yourhandle"
-          className={`w-full bg-neutral-900 border rounded-xl pl-7 pr-9 py-3 text-white text-sm placeholder-neutral-500 focus:outline-none transition-colors ${
+          className={`w-full bg-sunken border rounded-xl pl-7 pr-9 py-3 text-ink text-sm placeholder-ink/30 focus:outline-none transition-colors ${
             status === "valid"
-              ? "border-green-500"
+              ? "border-status-verified"
               : status === "invalid"
-              ? "border-red-500"
-              : "border-neutral-700 focus:border-brand-500"
+              ? "border-status-report"
+              : "border-ink/15 focus:border-brand-500"
           }`}
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           {status === "checking" && (
-            <svg className="w-4 h-4 animate-spin text-neutral-400" fill="none" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 animate-spin text-ink/40" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           )}
           {status === "valid" && (
-            <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 text-status-verified" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           )}
           {status === "invalid" && (
-            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 text-status-report" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           )}
@@ -393,7 +464,7 @@ function HandleRow({
         type="button"
         onClick={onCheck}
         disabled={!value.trim() || status === "checking"}
-        className="px-3 py-3 rounded-xl bg-neutral-800 text-neutral-300 text-sm font-medium hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+        className="px-3 py-3 rounded-xl bg-sunken border border-ink/15 text-ink/70 text-sm font-medium hover:bg-ink/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
       >
         Check
       </button>

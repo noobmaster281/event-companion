@@ -11,6 +11,8 @@ type EventRow = {
   event_date: string | null;
   photo_url: string | null;
   ticket_url: string | null;
+  verifiedCount: number;
+  lookingCount: number;
 };
 
 function formatDate(dateStr: string | null) {
@@ -45,8 +47,8 @@ function EventCard({
   }
 
   return (
-    <div className="bg-neutral-900 rounded-3xl overflow-hidden">
-      <div className="relative w-full aspect-[16/9] bg-neutral-800">
+    <div className="bg-card rounded-3xl overflow-hidden shadow-sm border border-sunken">
+      <div className="relative w-full aspect-[16/9] bg-sunken">
         {event.photo_url ? (
           <Image
             src={event.photo_url}
@@ -58,7 +60,7 @@ function EventCard({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <svg
-              className="w-10 h-10 text-neutral-700"
+              className="w-10 h-10 text-ink/20"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -75,13 +77,16 @@ function EventCard({
       </div>
 
       <div className="p-5">
-        <p className="text-xs text-brand-400 font-medium uppercase tracking-wide mb-1">
+        <p className="text-xs text-brand-500 font-medium uppercase tracking-wide mb-1">
           {event.festival_name}
         </p>
-        <h2 className="text-lg font-bold text-white leading-snug">{event.name}</h2>
+        <h2 className="text-lg font-serif font-bold text-ink leading-snug">{event.name}</h2>
         {event.event_date && (
-          <p className="text-sm text-neutral-400 mt-1">{formatDate(event.event_date)}</p>
+          <p className="text-sm text-ink/50 mt-1">{formatDate(event.event_date)}</p>
         )}
+        <p className="text-xs text-ink/40 mt-1">
+          {event.verifiedCount} verified · {event.lookingCount} looking for a group
+        </p>
 
         <div className="mt-4 flex gap-3">
           <a
@@ -104,7 +109,7 @@ function EventCard({
           {verified ? (
             <Link
               href={`/feed?event=${event.id}`}
-              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-green-500/40 text-green-400 bg-green-500/10 active:scale-95 transition-transform"
+              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-status-verified/40 text-status-verified bg-status-verified/10 active:scale-95 transition-transform"
             >
               Verified ✓
             </Link>
@@ -113,7 +118,7 @@ function EventCard({
               type="button"
               onClick={handleVerify}
               disabled={loading}
-              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-50 transition-all active:scale-95"
+              className="px-4 py-3 rounded-2xl text-sm font-semibold border border-ink/20 text-ink/60 hover:border-ink/40 disabled:opacity-50 transition-all active:scale-95"
             >
               {loading ? "…" : "Dev: Verify"}
             </button>
@@ -135,7 +140,7 @@ export function EventsClient({
 
   if (events.length === 0) {
     return (
-      <p className="text-neutral-500 text-sm text-center py-12">
+      <p className="text-ink/40 text-sm text-center py-12">
         No upcoming events yet.
       </p>
     );

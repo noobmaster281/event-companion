@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileActions } from "./ProfileActions";
-import type { VibeTag } from "@/lib/types";
+import type { VibeTag, Gender } from "@/lib/types";
 
 const VIBE_LABELS: Record<VibeTag, string> = {
   "here-for-headliners": "Here for the headliners",
@@ -15,6 +15,22 @@ const VIBE_LABELS: Record<VibeTag, string> = {
   photographer: "Photographer",
   "first-timer": "First timer",
 };
+
+const GENDER_LABELS: Record<Gender, string> = {
+  male: "Male",
+  female: "Female",
+  "non-binary": "Non-binary",
+  "prefer-not-to-say": "Prefer not to say",
+};
+
+function socialUrl(platform: string, handle: string): string {
+  switch (platform) {
+    case "Instagram": return `https://instagram.com/${handle}`;
+    case "TikTok": return `https://tiktok.com/@${handle}`;
+    case "Snapchat": return `https://snapchat.com/add/${handle}`;
+    default: return "#";
+  }
+}
 
 export default async function ProfilePage({
   params,
@@ -33,13 +49,12 @@ export default async function ProfilePage({
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle")
+    .select("id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle, age, gender, bio")
     .eq("id", targetId)
     .single();
 
   if (!profile) notFound();
 
-  // Scope to the specific event if provided, otherwise fall back to all shared events
   let scopedEventIds: string[];
   if (eventId) {
     scopedEventIds = [eventId];
@@ -57,26 +72,36 @@ export default async function ProfilePage({
     .eq("user_id", targetId)
     .in("event_id", scopedEventIds);
 
-  // Their confirmed group scoped to the event context
   const { data: membership } = await supabase
     .from("group_members")
-    .select("group_id, status, groups!inner(id, name, status, event_id)")
+    .select("group_id, status, groups!inner(id, name, status, event_id, max_size)")
     .eq("user_id", targetId)
     .eq("status", "confirmed")
     .in("groups.event_id", scopedEventIds)
     .maybeSingle();
 
-  type GroupRow = { id: string; name: string | null; status: string; event_id: string };
+  type GroupRow = { id: string; name: string | null; status: string; event_id: string; max_size: number };
   const theirGroup = membership ? (membership.groups as unknown as GroupRow) : null;
 
-  // Check my relationship to their group + whether I'm already confirmed elsewhere in this event
+  // My group in this event context
+  const { data: myMembership } = await supabase
+    .from("group_members")
+    .select("group_id, status, groups!inner(id, name, status, event_id, max_size)")
+    .eq("user_id", me.id)
+    .eq("status", "confirmed")
+    .in("groups.event_id", scopedEventIds)
+    .maybeSingle();
+
+  const myGroupRow = myMembership ? (myMembership.groups as unknown as GroupRow) : null;
+
   let alreadyRequested = false;
   let alreadyInGroup = false;
   let alreadyInAnotherGroup = false;
   let confirmedCount = 0;
+  let myGroupConfirmedCount = 0;
 
   if (theirGroup) {
-    const [{ data: myMembership }, { data: myConfirmedMembership }, { count }] = await Promise.all([
+    const [{ data: myMembershipInTheirGroup }, { count: theirCount }] = await Promise.all([
       supabase
         .from("group_members")
         .select("status")
@@ -85,34 +110,38 @@ export default async function ProfilePage({
         .maybeSingle(),
       supabase
         .from("group_members")
-        .select("group_id, groups!inner(event_id)")
-        .eq("user_id", me.id)
-        .eq("status", "confirmed")
-        .eq("groups.event_id", theirGroup.event_id)
-        .neq("group_id", theirGroup.id)
-        .maybeSingle(),
-      supabase
-        .from("group_members")
         .select("id", { count: "exact", head: true })
         .eq("group_id", theirGroup.id)
         .eq("status", "confirmed"),
     ]);
 
-    confirmedCount = count ?? 0;
-    if (myMembership) {
+    confirmedCount = theirCount ?? 0;
+    if (myMembershipInTheirGroup) {
       alreadyRequested = true;
-      alreadyInGroup = myMembership.status === "confirmed";
+      alreadyInGroup = myMembershipInTheirGroup.status === "confirmed";
     }
-    if (myConfirmedMembership) {
-      alreadyInAnotherGroup = true;
-    }
+  }
+
+  if (myGroupRow && theirGroup && myGroupRow.id !== theirGroup.id) {
+    alreadyInAnotherGroup = true;
+  } else if (myGroupRow && !theirGroup) {
+    alreadyInAnotherGroup = false; // I have a group but they don't — can invite
+  }
+
+  if (myGroupRow) {
+    const { count } = await supabase
+      .from("group_members")
+      .select("id", { count: "exact", head: true })
+      .eq("group_id", myGroupRow.id)
+      .eq("status", "confirmed");
+    myGroupConfirmedCount = count ?? 0;
   }
 
   const vibeTags = (profile.vibe_tags ?? []) as VibeTag[];
   const socialHandles = [
-    profile.instagram_handle ? { platform: "Instagram", handle: `@${profile.instagram_handle}` } : null,
-    profile.tiktok_handle    ? { platform: "TikTok",    handle: `@${profile.tiktok_handle}` }    : null,
-    profile.snapchat_handle  ? { platform: "Snapchat",  handle: `@${profile.snapchat_handle}` }  : null,
+    profile.instagram_handle ? { platform: "Instagram", handle: profile.instagram_handle } : null,
+    profile.tiktok_handle    ? { platform: "TikTok",    handle: profile.tiktok_handle }    : null,
+    profile.snapchat_handle  ? { platform: "Snapchat",  handle: profile.snapchat_handle }  : null,
   ].filter((s): s is { platform: string; handle: string } => s !== null);
 
   const sharedEvent = sharedBadges?.[0]?.events as unknown as
@@ -121,26 +150,43 @@ export default async function ProfilePage({
 
   const backHref = eventId ? `/feed?event=${eventId}` : "/feed";
 
+  const myGroupIsFull = myGroupRow
+    ? myGroupConfirmedCount >= (myGroupRow.max_size ?? 5)
+    : false;
+
   return (
     <div className="flex flex-col flex-1">
       {/* Back button */}
-      <div className="px-5 pt-6">
-        <Link href={backHref} className="inline-flex items-center gap-1 text-neutral-400 text-sm">
+      <div className="px-5 pt-6 flex items-center justify-between">
+        <Link href={backHref} className="inline-flex items-center gap-1 text-ink/50 text-sm">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Feed
         </Link>
+        {/* Report button */}
+        <ProfileActions
+          targetUserId={targetId}
+          targetName={profile.name ?? "this person"}
+          currentUserId={me.id}
+          group={theirGroup ? { id: theirGroup.id, name: theirGroup.name, confirmedCount, maxSize: theirGroup.max_size ?? 5 } : null}
+          myGroup={myGroupRow ? { id: myGroupRow.id, confirmedCount: myGroupConfirmedCount, isFull: myGroupIsFull } : null}
+          alreadyRequested={alreadyRequested}
+          alreadyInGroup={alreadyInGroup}
+          alreadyInAnotherGroup={alreadyInAnotherGroup}
+          eventId={eventId}
+          renderMode="report-only"
+        />
       </div>
 
       {/* Photo */}
       <div className="px-5 mt-4">
-        <div className="w-28 h-28 rounded-3xl bg-neutral-800 overflow-hidden relative">
+        <div className="w-28 h-28 rounded-3xl bg-sunken overflow-hidden relative">
           {profile.photo_url ? (
             <Image src={profile.photo_url} alt={profile.name ?? ""} fill className="object-cover" sizes="112px" />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-4xl font-bold text-neutral-600">
+              <span className="text-4xl font-serif font-bold text-ink/20">
                 {(profile.name ?? "?").charAt(0).toUpperCase()}
               </span>
             </div>
@@ -148,32 +194,46 @@ export default async function ProfilePage({
         </div>
       </div>
 
-      {/* Name + verified badge */}
+      {/* Name + age + verified */}
       <div className="px-5 mt-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-white">{profile.name}</h1>
-          <span className="flex items-center gap-1 bg-brand-500/10 text-brand-400 text-xs font-medium px-2 py-1 rounded-full border border-brand-500/20">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-2xl font-serif font-bold text-ink">{profile.name}</h1>
+          {profile.age && <span className="text-ink/50 text-lg">{profile.age}</span>}
+          <span className="flex items-center gap-1 bg-brand-500/10 text-brand-500 text-xs font-medium px-2 py-1 rounded-full border border-brand-500/20">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             Verified
           </span>
         </div>
+        {profile.gender && (
+          <p className="text-sm text-ink/40 mt-0.5">{GENDER_LABELS[profile.gender as Gender]}</p>
+        )}
         {sharedEvent && (
-          <p className="text-sm text-neutral-400 mt-0.5">{sharedEvent.festival_name}</p>
+          <p className="text-sm text-ink/40 mt-0.5">{sharedEvent.festival_name}</p>
+        )}
+        {profile.bio && (
+          <p className="text-sm text-ink/70 mt-2 leading-relaxed">{profile.bio}</p>
         )}
       </div>
 
-      {/* Social handles */}
+      {/* Social handles — tappable */}
       {socialHandles.length > 0 && (
         <div className="px-5 mt-4 space-y-2">
           {socialHandles.map((s) => (
-            <div key={s.platform} className="flex items-center gap-3 bg-neutral-900 rounded-xl px-4 py-3">
-              <span className="text-xs text-neutral-500 uppercase tracking-wide w-20 shrink-0">
-                {s.platform}
-              </span>
-              <span className="text-white font-medium text-sm">{s.handle}</span>
-            </div>
+            <a
+              key={s.platform}
+              href={socialUrl(s.platform, s.handle)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-sunken active:scale-[0.98] transition-transform"
+            >
+              <span className="text-xs text-ink/40 uppercase tracking-wide w-20 shrink-0">{s.platform}</span>
+              <span className="text-brand-500 font-medium text-sm">@{s.handle}</span>
+              <svg className="w-3.5 h-3.5 text-ink/20 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
           ))}
         </div>
       )}
@@ -181,13 +241,10 @@ export default async function ProfilePage({
       {/* Vibe tags */}
       {vibeTags.length > 0 && (
         <div className="px-5 mt-6">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Vibe</p>
+          <p className="text-xs text-ink/40 uppercase tracking-wide mb-2">Vibe</p>
           <div className="flex flex-wrap gap-2">
             {vibeTags.map((tag) => (
-              <span
-                key={tag}
-                className="px-3 py-1.5 rounded-full text-sm font-medium border border-neutral-700 text-neutral-300"
-              >
+              <span key={tag} className="px-3 py-1.5 rounded-full text-sm font-medium border border-ink/15 text-ink/70">
                 {VIBE_LABELS[tag]}
               </span>
             ))}
@@ -198,28 +255,28 @@ export default async function ProfilePage({
       {/* Group size preference */}
       {profile.group_size_preference && (
         <div className="px-5 mt-6">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Ideal group size</p>
-          <p className="text-white font-medium">
+          <p className="text-xs text-ink/40 uppercase tracking-wide mb-2">Ideal group size</p>
+          <p className="text-ink font-medium">
             {profile.group_size_preference >= 7 ? "7+" : profile.group_size_preference} people
           </p>
         </div>
       )}
 
-      {/* Group status — scoped to the event context */}
+      {/* Group status */}
       {theirGroup && (
         <div className="px-5 mt-6">
-          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Group</p>
+          <p className="text-xs text-ink/40 uppercase tracking-wide mb-2">Group</p>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${theirGroup.status === "confirmed" ? "bg-green-500" : "bg-amber-400"}`} />
-            <span className="text-white text-sm">
-              {theirGroup.status === "confirmed"
+            <span className={`w-2 h-2 rounded-full ${theirGroup.status === "confirmed" ? "bg-status-verified" : "bg-status-forming"}`} />
+            <span className="text-ink text-sm">
+              {confirmedCount <= 1
+                ? "Solo · Open"
+                : theirGroup.status === "confirmed"
                 ? `Confirmed group · ${confirmedCount} members`
-                : `Forming a group · ${confirmedCount} confirmed`}
+                : `Forming · ${confirmedCount} confirmed`}
             </span>
           </div>
-          {theirGroup.name && (
-            <p className="text-neutral-400 text-sm mt-1">{theirGroup.name}</p>
-          )}
+          {theirGroup.name && <p className="text-ink/40 text-sm mt-1">{theirGroup.name}</p>}
         </div>
       )}
 
@@ -227,11 +284,15 @@ export default async function ProfilePage({
       <div className="px-5 mt-8 pb-8 mt-auto">
         <ProfileActions
           targetUserId={targetId}
+          targetName={profile.name ?? "this person"}
           currentUserId={me.id}
-          group={theirGroup ? { id: theirGroup.id, name: theirGroup.name, confirmedCount } : null}
+          group={theirGroup ? { id: theirGroup.id, name: theirGroup.name, confirmedCount, maxSize: theirGroup.max_size ?? 5 } : null}
+          myGroup={myGroupRow ? { id: myGroupRow.id, confirmedCount: myGroupConfirmedCount, isFull: myGroupIsFull } : null}
           alreadyRequested={alreadyRequested}
           alreadyInGroup={alreadyInGroup}
           alreadyInAnotherGroup={alreadyInAnotherGroup}
+          eventId={eventId}
+          renderMode="actions"
         />
       </div>
     </div>
