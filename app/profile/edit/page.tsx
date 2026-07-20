@@ -18,6 +18,12 @@ const VIBE_TAGS: { id: VibeTag; label: string }[] = [
 
 const GROUP_SIZES = [2, 3, 4, 5, 6];
 const PLATFORMS: SocialPlatform[] = ["instagram", "tiktok", "snapchat"];
+const GROUP_PREFS = [
+  { id: "open", label: "Open to Anyone" },
+  { id: "female", label: "Female" },
+  { id: "male", label: "Male" },
+  { id: "mixed", label: "Non-Binary/Mixed" },
+];
 const GENDERS: { id: Gender; label: string }[] = [
   { id: "male", label: "Male" },
   { id: "female", label: "Female" },
@@ -40,6 +46,7 @@ export default function EditProfilePage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
+  const [groupPreference, setGroupPreference] = useState<string>("");
   const [bio, setBio] = useState("");
   const [selectedTags, setSelectedTags] = useState<VibeTag[]>([]);
   const [groupSize, setGroupSize] = useState(3);
@@ -57,12 +64,14 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string | null>(null);
 
   const filledPlatforms = PLATFORMS.filter((p) => handles[p].trim());
-  const allFilledAreValid = filledPlatforms.every((p) => handleStatuses[p] === "valid");
+  // In edit mode, "idle" means unchanged from DB — don't force re-verification
+  const allFilledAreValid = filledPlatforms.every((p) => handleStatuses[p] !== "invalid");
   const ageNum = parseInt(age, 10);
   const canSubmit =
     name.trim() &&
     age && !isNaN(ageNum) && ageNum >= 18 &&
     gender &&
+    groupPreference &&
     selectedTags.length > 0 &&
     filledPlatforms.length > 0 &&
     allFilledAreValid &&
@@ -75,7 +84,7 @@ export default function EditProfilePage() {
 
       const { data: profile } = await supabase
         .from("users")
-        .select("name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle, age, gender, bio, profile_complete")
+        .select("name, photo_url, vibe_tags, group_size_preference, group_preference, instagram_handle, tiktok_handle, snapchat_handle, age, gender, bio, profile_complete")
         .eq("id", user.id)
         .single();
 
@@ -97,6 +106,7 @@ export default function EditProfilePage() {
       setInitialPhotoUrl(profile.photo_url ?? null);
       setAge(profile.age?.toString() ?? "");
       setGender((profile.gender ?? "") as Gender | "");
+      setGroupPreference(profile.group_preference ?? "");
       setBio(profile.bio ?? "");
       setSelectedTags((profile.vibe_tags ?? []) as VibeTag[]);
       setGroupSize(profile.group_size_preference ?? 3);
@@ -181,6 +191,7 @@ export default function EditProfilePage() {
         age: ageNum,
         gender,
         bio: bio.trim() || null,
+        group_preference: groupPreference || null,
         vibe_tags: selectedTags,
         group_size_preference: groupSize,
         instagram_handle: clean("instagram"),
@@ -280,6 +291,28 @@ export default function EditProfilePage() {
               }`}
             >
               {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Group preference */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-1">Group preference</label>
+        <p className="text-xs text-ink/50 mb-3">What kind of group are you looking for?</p>
+        <div className="flex flex-wrap gap-2">
+          {GROUP_PREFS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setGroupPreference(p.id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                groupPreference === p.id
+                  ? "bg-brand-500 border-brand-500 text-white"
+                  : "border-ink/20 text-ink/70 hover:border-ink/40"
+              }`}
+            >
+              {p.label}
             </button>
           ))}
         </div>

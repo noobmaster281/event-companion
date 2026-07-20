@@ -18,6 +18,12 @@ const VIBE_TAGS: { id: VibeTag; label: string }[] = [
 
 const GROUP_SIZES = [2, 3, 4, 5, 6];
 const PLATFORMS: SocialPlatform[] = ["instagram", "tiktok", "snapchat"];
+const GROUP_PREFS = [
+  { id: "open", label: "Open to Anyone" },
+  { id: "female", label: "Female" },
+  { id: "male", label: "Male" },
+  { id: "mixed", label: "Non-Binary/Mixed" },
+];
 const GENDERS: { id: Gender; label: string }[] = [
   { id: "male", label: "Male" },
   { id: "female", label: "Female" },
@@ -37,6 +43,7 @@ export default function CreateProfilePage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
+  const [groupPreference, setGroupPreference] = useState<string>("");
   const [bio, setBio] = useState("");
   const [selectedTags, setSelectedTags] = useState<VibeTag[]>([]);
   const [groupSize, setGroupSize] = useState<number>(3);
@@ -61,6 +68,7 @@ export default function CreateProfilePage() {
     photoFile &&
     age && !isNaN(ageNum) && ageNum >= 18 &&
     gender &&
+    groupPreference &&
     selectedTags.length > 0 &&
     filledPlatforms.length > 0 &&
     allFilledAreValid &&
@@ -104,6 +112,7 @@ export default function CreateProfilePage() {
     if (!photoFile) { setError("A profile photo is required."); return; }
     if (!age || isNaN(ageNum) || ageNum < 18) { setError("You must be 18 or older to use this app."); return; }
     if (!gender) { setError("Please select your gender."); return; }
+    if (!groupPreference) { setError("Please select your group preference."); return; }
     if (selectedTags.length === 0) { setError("Pick at least one vibe tag."); return; }
     if (filledPlatforms.length === 0) { setError("Add at least one social handle."); return; }
     if (!allFilledAreValid) { setError("Please verify all your social handles before continuing."); return; }
@@ -136,6 +145,7 @@ export default function CreateProfilePage() {
         age: ageNum,
         gender,
         bio: bio.trim() || null,
+        group_preference: groupPreference,
         vibe_tags: selectedTags,
         group_size_preference: groupSize,
         instagram_handle: clean("instagram"),
@@ -232,6 +242,30 @@ export default function CreateProfilePage() {
               }`}
             >
               {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Group preference */}
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-ink mb-1">
+          Group preference <span className="text-status-report">*</span>
+        </label>
+        <p className="text-xs text-ink/50 mb-3">What kind of group are you looking for?</p>
+        <div className="flex flex-wrap gap-2">
+          {GROUP_PREFS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setGroupPreference(p.id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                groupPreference === p.id
+                  ? "bg-brand-500 border-brand-500 text-white"
+                  : "border-ink/20 text-ink/70 hover:border-ink/40"
+              }`}
+            >
+              {p.label}
             </button>
           ))}
         </div>

@@ -30,7 +30,7 @@ export function TopNavClient({ items, avatarUrl, userName }: Props) {
                 href={item.href}
                 className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
                   active
-                    ? "text-ink bg-ink/10"
+                    ? "text-ink bg-ink/20 shadow-sm font-semibold"
                     : "text-ink/50 hover:text-ink"
                 }`}
               >

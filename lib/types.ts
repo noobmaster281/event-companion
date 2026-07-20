@@ -9,6 +9,7 @@ export type VibeTag =
   | "first-timer";
 
 export type Gender = "male" | "female" | "non-binary" | "prefer-not-to-say";
+export type GroupPreference = "open" | "male" | "female" | "mixed";
 
 export interface User {
   id: string;
@@ -23,6 +24,7 @@ export interface User {
   age: number | null;
   bio: string | null;
   gender: Gender | null;
+  group_preference: GroupPreference | null;
   profile_complete: boolean;
   created_at: string;
 }

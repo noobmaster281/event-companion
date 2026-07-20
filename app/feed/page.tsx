@@ -28,7 +28,7 @@ export default async function FeedPage({
 
   const { data: profile } = await supabase
     .from("users")
-    .select("profile_complete")
+    .select("profile_complete, group_size_preference, group_preference")
     .eq("id", user.id)
     .single();
 
@@ -100,7 +100,7 @@ export default async function FeedPage({
     return (
       <div className="flex flex-col flex-1 pb-8">
         <div className="px-5 pt-10 pb-6">
-          <h1 className="text-2xl font-serif font-bold text-ink">Your Events</h1>
+          <h1 className="text-2xl font-serif font-bold text-ink">My Events</h1>
           <p className="text-sm text-ink/50 mt-1">Pick an event to see who else is going.</p>
         </div>
 
@@ -125,7 +125,7 @@ export default async function FeedPage({
                   {event.event_date && (
                     <p className="text-xs text-ink/40 mt-0.5">{formatDate(event.event_date)}</p>
                   )}
-                  <p className="text-xs text-ink/30 mt-0.5">
+                  <p className="text-xs text-ink/60 mt-1 font-medium">
                     {verifiedUsers.length} verified · {lookingCount} looking
                   </p>
                 </div>
@@ -159,7 +159,7 @@ export default async function FeedPage({
   const { data: userProfiles } = otherUserIds.length > 0
     ? await supabase
         .from("users")
-        .select("id, name, photo_url, vibe_tags, group_size_preference, instagram_handle, tiktok_handle, snapchat_handle, gender, age")
+        .select("id, name, photo_url, vibe_tags, group_size_preference, group_preference, instagram_handle, tiktok_handle, snapchat_handle, gender, age")
         .in("id", otherUserIds)
     : { data: [] };
 
@@ -230,6 +230,10 @@ export default async function FeedPage({
       attendees={attendees}
       event={eventRow ? { ...eventRow, verifiedCount: allEventUserIds.length, lookingCount } : null}
       myGroup={myGroup}
+      myPreferences={{
+        groupSizePref: profile?.group_size_preference ?? null,
+        groupPreference: profile?.group_preference ?? null,
+      }}
     />
   );
 }

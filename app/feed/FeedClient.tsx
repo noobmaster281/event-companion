@@ -30,24 +30,51 @@ interface Props {
   attendees: AttendeeCardData[];
   event: { id: string; name: string; festival_name: string; verifiedCount: number; lookingCount: number } | null;
   myGroup: { id: string; status: string } | null;
+  myPreferences: { groupSizePref: number | null; groupPreference: string | null };
 }
 
 type GroupFilter = "all" | "looking" | "forming";
 
-function sortAttendees(list: AttendeeCardData[]): AttendeeCardData[] {
+function sortAttendees(
+  list: AttendeeCardData[],
+  myGroupSizePref: number | null,
+  myGroupPreference: string | null,
+): AttendeeCardData[] {
   return [...list].sort((a, b) => {
-    const rank = (x: AttendeeCardData) => {
-      if (!x.group) return 0; // solo — top
-      const { confirmedCount, maxSize } = x.group;
-      if (confirmedCount >= maxSize) return 3; // full group — bottom
-      if (x.group.status === "confirmed") return 2; // confirmed group
-      return 1; // forming
+    const score = (x: AttendeeCardData) => {
+      // Primary: availability (0=solo, 1=forming/solo-open, 2=confirmed, 3=full)
+      let availRank: number;
+      if (!x.group) {
+        availRank = 0;
+      } else {
+        const { confirmedCount, maxSize } = x.group;
+        if (confirmedCount >= maxSize) availRank = 3;
+        else if (x.group.status === "confirmed") availRank = 2;
+        else availRank = 1;
+      }
+
+      // Secondary: group preference match (0=match/open, 1=no preference, 2=mismatch)
+      let prefPenalty = 0;
+      if (myGroupPreference && myGroupPreference !== "open" && myGroupPreference !== "mixed") {
+        if (x.gender && x.gender !== "prefer-not-to-say") {
+          prefPenalty = x.gender === myGroupPreference ? 0 : 2;
+        } else {
+          prefPenalty = 1;
+        }
+      }
+
+      // Tertiary: group size proximity (lower distance = earlier)
+      const sizeDist = myGroupSizePref && x.groupSizePref
+        ? Math.abs(myGroupSizePref - x.groupSizePref)
+        : 5;
+
+      return availRank * 1_000_000 + prefPenalty * 10_000 + sizeDist;
     };
-    return rank(a) - rank(b);
+    return score(a) - score(b);
   });
 }
 
-export default function FeedClient({ currentUserId, attendees, event, myGroup }: Props) {
+export default function FeedClient({ currentUserId, attendees, event, myGroup, myPreferences }: Props) {
   const [selectedVibes, setSelectedVibes] = useState<VibeTag[]>([]);
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
   const [genderFilter, setGenderFilter] = useState<Gender | "all">("all");
@@ -66,8 +93,8 @@ export default function FeedClient({ currentUserId, attendees, event, myGroup }:
       if (genderFilter !== "all" && a.gender !== genderFilter) return false;
       return true;
     });
-    return sortAttendees(result);
-  }, [attendees, selectedVibes, groupFilter, genderFilter]);
+    return sortAttendees(result, myPreferences.groupSizePref, myPreferences.groupPreference);
+  }, [attendees, selectedVibes, groupFilter, genderFilter, myPreferences]);
 
   function toggleVibe(tag: VibeTag) {
     setSelectedVibes((prev) =>
@@ -94,7 +121,7 @@ export default function FeedClient({ currentUserId, attendees, event, myGroup }:
 
         {/* Event stats */}
         {event && (
-          <p className="text-xs text-ink/40 mt-1">
+          <p className="text-xs text-ink/60 mt-1 font-medium">
             {event.verifiedCount} verified · {event.lookingCount} looking for a group
           </p>
         )}

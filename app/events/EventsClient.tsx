@@ -84,7 +84,7 @@ function EventCard({
         {event.event_date && (
           <p className="text-sm text-ink/50 mt-1">{formatDate(event.event_date)}</p>
         )}
-        <p className="text-xs text-ink/40 mt-1">
+        <p className="text-xs text-ink/60 mt-1 font-medium">
           {event.verifiedCount} verified · {event.lookingCount} looking for a group
         </p>
 
