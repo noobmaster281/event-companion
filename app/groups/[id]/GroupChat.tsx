@@ -22,10 +22,14 @@ interface Props {
   currentUserId: string;
   initialMessages: ChatMessage[];
   members: MemberProfile[];
+  blockedIds?: string[];
 }
 
-export function GroupChat({ groupId, currentUserId, initialMessages, members }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+export function GroupChat({ groupId, currentUserId, initialMessages, members, blockedIds = [] }: Props) {
+  const blockedSet = useMemo(() => new Set(blockedIds), [blockedIds]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    initialMessages.filter((m) => !blockedSet.has(m.userId))
+  );
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -66,6 +70,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
             content: string;
             created_at: string;
           };
+          if (blockedSet.has(row.user_id)) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
             return [
@@ -85,7 +90,7 @@ export function GroupChat({ groupId, currentUserId, initialMessages, members }: 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, supabase]);
+  }, [groupId, supabase, blockedSet]);
 
   async function send() {
     const text = input.trim();

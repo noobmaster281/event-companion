@@ -100,17 +100,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert the user row in our public users table
-    await supabase
+    const { error: userUpsertError } = await supabase
       .from("users")
       .upsert({ id: userId, email }, { onConflict: "id", ignoreDuplicates: true });
 
+    if (userUpsertError) {
+      console.error("[verify-token] users upsert failed", { userId, email, userUpsertError });
+      return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 });
+    }
+
     // Stamp the verified badge (no-op if already exists)
-    await supabase
+    const { error: badgeUpsertError } = await supabase
       .from("verified_badges")
       .upsert(
         { user_id: userId, event_id },
         { onConflict: "user_id,event_id", ignoreDuplicates: true }
       );
+
+    if (badgeUpsertError) {
+      console.error("[verify-token] badge upsert failed", { userId, event_id, badgeUpsertError });
+      return NextResponse.json({ error: "Failed to record verification" }, { status: 500 });
+    }
 
     // Return the verified email so the client can trigger the magic link via signInWithOtp.
     // We don't send from here — generateLink doesn't deliver email; signInWithOtp does.

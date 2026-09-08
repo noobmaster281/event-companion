@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { GroupManager } from "./GroupManager";
 import { GroupChat, type ChatMessage, type MemberProfile } from "./GroupChat";
+import { getBlockedIds } from "@/lib/safety";
 
 export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: groupId } = await params;
@@ -48,17 +49,26 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
   };
 
   const allMembers = (members ?? []) as unknown as MemberRow[];
+  // Kept unfiltered — permissions and chat-unlock/confirmation semantics must
+  // not depend on the viewer's personal block list, only on real membership.
   const confirmed = allMembers.filter((m) => m.status === "confirmed");
   const pending = allMembers.filter((m) => m.status === "pending");
 
   const isConfirmedMember = confirmed.some((m) => m.users.id === me.id);
   const isPendingMember = pending.some((m) => m.users.id === me.id);
-  const isCreator = group.created_by === me.id;
+  // A creator who left the group (e.g. via block-driven self-removal) is no
+  // longer a real member — don't let `created_by` alone keep the page open.
+  const isCreator = group.created_by === me.id && isConfirmedMember;
 
-  // Only confirmed members and the creator can see this page
+  // Only confirmed members, pending members, and the (still-member) creator can see this page
   if (!isConfirmedMember && !isPendingMember && !isCreator) {
     redirect("/feed");
   }
+
+  // Separate, display-only lists with blocked users hidden from the viewer.
+  const blockedIds = await getBlockedIds(supabase, me.id);
+  const visibleConfirmed = confirmed.filter((m) => !blockedIds.has(m.users.id));
+  const visiblePending = pending.filter((m) => !blockedIds.has(m.users.id));
 
   const chatUnlocked = confirmed.length >= 2 && isConfirmedMember;
 
@@ -82,7 +92,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  const memberProfiles: MemberProfile[] = confirmed.map(({ users: u }) => ({
+  const memberProfiles: MemberProfile[] = visibleConfirmed.map(({ users: u }) => ({
     userId: u.id,
     name: u.name ?? "Member",
     photoUrl: u.photo_url,
@@ -155,10 +165,10 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
       {/* Confirmed members */}
       <div className="mt-8">
         <p className="text-xs text-ink/40 uppercase tracking-wide mb-3 px-5">
-          Members ({confirmed.length})
+          Members ({visibleConfirmed.length})
         </p>
         <div className="space-y-2 px-5">
-          {confirmed.map(({ users: u }) => (
+          {visibleConfirmed.map(({ users: u }) => (
             <Link
               key={u.id}
               href={u.id === me.id ? "/profile" : `/profile/${u.id}`}
@@ -189,11 +199,13 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Pending join requests — only visible to creator */}
-      {isCreator && (
+      {/* Pending join requests — only visible to the creator, and only while
+          they're still a confirmed member (a creator who left via a block
+          shouldn't retain accept/decline power over this group). */}
+      {isCreator && isConfirmedMember && (
         <GroupManager
           groupId={groupId}
-          pendingMembers={pending.map(({ users: u }) => ({
+          pendingMembers={visiblePending.map(({ users: u }) => ({
             userId: u.id,
             name: u.name ?? "Unknown",
             photoUrl: u.photo_url,
@@ -203,10 +215,10 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* Non-creator sees pending count */}
-      {!isCreator && pending.length > 0 && !isPendingMember && (
+      {!isCreator && visiblePending.length > 0 && !isPendingMember && (
         <div className="px-5 mt-6">
           <p className="text-xs text-ink/40 text-center">
-            {pending.length} pending request{pending.length !== 1 ? "s" : ""} — the creator will review them
+            {visiblePending.length} pending request{visiblePending.length !== 1 ? "s" : ""} — the creator will review them
           </p>
         </div>
       )}
@@ -230,6 +242,7 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
           currentUserId={me.id}
           initialMessages={initialMessages}
           members={memberProfiles}
+          blockedIds={Array.from(blockedIds)}
         />
       )}
     </div>

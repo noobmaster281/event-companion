@@ -90,7 +90,10 @@ export default async function MyProfilePage() {
           </svg>
           Feed
         </Link>
-        <Link href="/profile/edit" className="text-sm text-brand-500 font-medium">Edit</Link>
+        <div className="flex items-center gap-4">
+          <Link href="/settings/blocked" className="text-sm text-ink/50 font-medium">Blocked</Link>
+          <Link href="/profile/edit" className="text-sm text-brand-500 font-medium">Edit</Link>
+        </div>
       </div>
 
       {/* Photo */}

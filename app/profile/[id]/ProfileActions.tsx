@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ReportSheet } from "@/components/safety/ReportSheet";
+import { BlockDialog } from "@/components/safety/BlockDialog";
 
 interface Props {
   targetUserId: string;
@@ -31,9 +33,8 @@ export function ProfileActions({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState(alreadyRequested);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [reported, setReported] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSheet, setActiveSheet] = useState<"report" | "block" | null>(null);
   const router = useRouter();
 
   if (targetUserId === currentUserId) return null;
@@ -43,55 +44,58 @@ export function ProfileActions({
     return (
       <div className="relative">
         <button
-          onClick={() => setReportOpen((o) => !o)}
+          onClick={() => setMenuOpen((o) => !o)}
           className="p-2 rounded-full hover:bg-ink/5 transition-colors"
-          aria-label="Report or block"
+          aria-label="More options"
         >
           <svg className="w-5 h-5 text-ink/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
           </svg>
         </button>
 
-        {reportOpen && (
-          <div className="absolute right-0 top-10 w-56 bg-card rounded-2xl shadow-xl border border-sunken z-50 overflow-hidden">
-            {reported ? (
-              <p className="px-4 py-3 text-sm text-ink/60">Report submitted. Thank you.</p>
-            ) : (
-              <>
-                <div className="px-4 pt-3 pb-2">
-                  <p className="text-xs font-medium text-ink/50 uppercase tracking-wide mb-2">Reason (optional)</p>
-                  <textarea
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    placeholder="What's the issue?"
-                    className="w-full bg-sunken rounded-lg px-3 py-2 text-sm text-ink placeholder-ink/30 focus:outline-none resize-none border border-ink/10"
-                    rows={2}
-                    maxLength={200}
-                  />
-                </div>
-                <button
-                  onClick={async () => {
-                    await fetch("/api/report-user", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ reported_id: targetUserId, reason: reportReason.trim() || null }),
-                    });
-                    setReported(true);
-                  }}
-                  className="w-full px-4 py-3 text-left text-sm text-status-report font-medium hover:bg-status-report/5 transition-colors border-t border-sunken"
-                >
-                  Report {targetName}
-                </button>
-              </>
-            )}
+        {menuOpen && !activeSheet && (
+          <div className="absolute right-0 top-10 w-44 bg-card rounded-2xl shadow-xl border border-sunken z-50 overflow-hidden">
             <button
-              onClick={() => setReportOpen(false)}
+              onClick={() => setActiveSheet("report")}
+              className="w-full px-4 py-3 text-left text-sm text-status-report font-medium hover:bg-status-report/5 transition-colors"
+            >
+              Report
+            </button>
+            <button
+              onClick={() => setActiveSheet("block")}
+              className="w-full px-4 py-3 text-left text-sm text-status-report font-medium hover:bg-status-report/5 transition-colors border-t border-sunken"
+            >
+              Block
+            </button>
+            <button
+              onClick={() => setMenuOpen(false)}
               className="w-full px-4 py-3 text-left text-sm text-ink/50 hover:bg-sunken transition-colors border-t border-sunken"
             >
               Cancel
             </button>
           </div>
         )}
+
+        <ReportSheet
+          targetUserId={targetUserId}
+          targetName={targetName}
+          open={activeSheet === "report"}
+          onClose={() => {
+            setActiveSheet(null);
+            setMenuOpen(false);
+          }}
+          eventId={eventId}
+        />
+        <BlockDialog
+          targetUserId={targetUserId}
+          targetName={targetName}
+          open={activeSheet === "block"}
+          onClose={() => {
+            setActiveSheet(null);
+            setMenuOpen(false);
+          }}
+          eventId={eventId}
+        />
       </div>
     );
   }

@@ -101,10 +101,33 @@ export interface AttendeeCard {
   group?: Group | null;
 }
 
+export type ReportReason =
+  | "harassment"
+  | "inappropriate-messages"
+  | "fake-or-impersonation"
+  | "spam"
+  | "safety-concern"
+  | "other";
+
+export type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
+
 export interface Report {
   id: string;
   reporter_id: string;
   reported_id: string;
-  reason: string | null;
+  reason: ReportReason;
+  details: string | null;
+  event_id: string | null;
+  message_id: string | null;
+  status: ReportStatus;
+  resolver_notes: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface Block {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
   created_at: string;
 }

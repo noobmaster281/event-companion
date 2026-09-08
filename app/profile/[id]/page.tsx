@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileActions } from "./ProfileActions";
 import type { VibeTag, Gender } from "@/lib/types";
+import { getBlockedIds } from "@/lib/safety";
 
 const VIBE_LABELS: Record<VibeTag, string> = {
   "here-for-headliners": "Here for the headliners",
@@ -54,6 +55,9 @@ export default async function ProfilePage({
     .single();
 
   if (!profile) notFound();
+
+  const blockedIds = await getBlockedIds(supabase, me.id);
+  if (blockedIds.has(targetId)) notFound();
 
   let scopedEventIds: string[];
   if (eventId) {

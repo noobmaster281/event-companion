@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FeedClient from "./FeedClient";
 import type { AttendeeCardData } from "@/components/AttendeeCard";
 import type { VibeTag, Gender } from "@/lib/types";
+import { getBlockedIds } from "@/lib/safety";
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return null;
@@ -154,7 +155,8 @@ export default async function FeedPage({
     .eq("event_id", eventId);
 
   const allEventUserIds = (allEventBadges ?? []).map((b) => b.user_id);
-  const otherUserIds = allEventUserIds.filter((id) => id !== user.id);
+  const blockedIds = await getBlockedIds(supabase, user.id);
+  const otherUserIds = allEventUserIds.filter((id) => id !== user.id && !blockedIds.has(id));
 
   const { data: userProfiles } = otherUserIds.length > 0
     ? await supabase
